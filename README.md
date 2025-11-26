@@ -1,166 +1,173 @@
-# googleAds-MultiAgent-KPI-research-campaign-planner
+# GoogleAds-MultiAgent-KPI-research-campaign-planner
 This aims to create a multi agents orchestrate together to provide appropriate campaign planner for the provided KPI  from Marketer which in turn do an insight,research with previous data from google bigquery via MCP and provide quick value realization to achive the Targeted KPI using Google ADK framework
 
-📘 Detailed Implementation Guide
+# 📘 KPI Achievement Engine  
+### **A Multi-Agent ADK Architecture for Google Ads KPI Diagnostics & Strategy Planning**
 
-This section provides an in-depth technical explanation of how the KPI Achievement Engine is implemented using the ADK multi-agent architecture, including its agents, tools, data access layer, and orchestrator logic.
+---
 
-🔍 1. Agent: InsightsAgent
+## 📖 Overview
 
-The InsightsAgent is the first agent (L1) in the multi-agent pipeline.
-Its goal is to establish a baseline understanding of KPI performance, identify current trends, detect gaps, and prepare data for deeper diagnosis in later stages.
+The **KPI Achievement Engine** is a **multi-agent system** built using Google’s **ADK (Agent Developer Kit)** to analyze Google Ads performance data, identify root causes behind KPI gaps, and generate a structured strategy plan.
 
-✅ Responsibilities
+The system uses:
 
-Read the KPI target (metric, current value, desired target, timeframe).
+- Multi-Agent Pipeline  
+- A2A Context Logging  
+- BigQuery Data Access  
+- Function Calling Tools  
+- Structured JSON Responses  
+- Pydantic Models  
 
-Query BigQuery for:
+This README documents the **detailed implementation** behind each part of the engine.
 
-Current KPI performance
+---
 
-Campaign-level breakdown
+# 🔍 1. Agent: InsightsAgent
 
-Supporting metrics (CTR, CPC, CVR, ROAS, Cost)
+The **InsightsAgent** is **Stage 1 (L1)** of the pipeline.
 
-Perform first-level analysis:
+Its goal:  
+👉 *Understand the KPI’s current state, quantify the performance gap, detect anomalies, and surface first-level insights.*
 
-What’s working?
+---
 
-What’s underperforming?
+### ✔ Responsibilities
 
-Which campaigns contribute most to the gap?
+- Retrieve **current KPI performance**
+- Analyze **campaign-level contributions**
+- Highlight **gaps and inefficiencies**
+- Identify **risks** & **opportunities**
+- Generate structured **JSON insights artifact**
 
-Produce structured output:
+---
 
-current_state
+### ✔ Prompt Structure
 
-gap_analysis
+The orchestrator generates an insights prompt such as:
 
-key_insights
-
-risk_areas
-
-opportunities
-
-This output becomes an A2A Artifact, consumed by the ResearchAgent.
-
-🔧 Implementation Overview
-
-The agent is implemented using:
-
-class InsightsAgent:
-    def __init__(self, client, bq_tools):
-        self.client = client
-        self.bq_tools = bq_tools
-
-🔹 Prompt Construction
-
-The orchestrator sends a prompt using build_insights_prompt(kpi_target):
-
+```
 You are an expert data analyst. Analyze the current state of this KPI.
-...
+
 Tasks:
-1. Use BigQuery queries to get detailed current metrics
-2. Analyze campaign-level contributions
-3. Identify key insights and risks
-4. Provide structured JSON output
+1. Query BigQuery for current KPI metrics
+2. Analyze campaign-level performance
+3. Identify insights, risks, and opportunities
+4. Provide JSON output with:
+   - current_state
+   - gap_analysis
+   - key_insights
+   - risk_areas
+   - opportunities
+```
 
-🔹 Agent Workflow (Pseudocode)
+---
 
-Receive the prompt
+### ✔ Internal Logic (Simplified)
 
-Use the Gemini model to request data or tools
+```python
+insights_raw = insights_agent.run(insights_prompt)
+insights_dict = json.loads(insights_raw)
+```
 
-When a function_call is requested, route it to BigQuery helpers
+The outcome becomes:
 
-Repeat until model returns a final JSON
+- First A2A artifact  
+- Input to ResearchAgent  
 
-Validate & return the structured insights
+---
 
-This establishes a clean data-driven foundation for subsequent agents.
+# 🛠 2. Tool Definitions
 
-🛠 2. Tool Definitions
+Tools enable the LLM to **call real backend functions** (BigQuery queries).
 
-The system uses Function Calling Tools so that the LLM can request data programmatically.
+Tools follow ADK’s function-calling syntax.
 
-Example Tool Definition:
+---
+
+### ✔ Example Tool Mapping
+
+```python
 AgentTool(
     name="get_current_kpi_metrics",
     description="Fetches current KPI values from BigQuery",
     func=self.bq_tools.get_kpi_current_value
 )
+```
 
-Typical Tools Exposed:
-Tool Name	Purpose
-get_current_kpi_metrics	Retrieves KPI metric values (Cost, Revenue, ROAS, etc.)
-get_campaign_breakdown	Provides performance by campaign
-get_time_series_trends	Historical metric trends
-analyze_campaign_efficiency	Compares cost vs conversions efficiency
-Why use Tools?
+---
 
-Ensures validated SQL execution
+### ✔ Tools Used in System
 
-Fully auditable queries
+| Tool Name | Purpose |
+|----------|---------|
+| get_current_kpi_metrics | Fetch KPI summary |
+| get_campaign_breakdown | Campaign-level data |
+| get_time_series_trends | Trend & seasonality check |
+| analyze_campaign_efficiency | High-cost vs high-return |
+| execute_bigquery_sql | NL2SQL dynamic query execution |
 
-Reduces LLM hallucination
+---
 
-Aligns with ADK Tooling design patterns
+### ✔ Why Tools Matter
 
-Each agent only receives tools relevant to its stage, following Principle of Least Privilege.
+Tools allow:
 
-🗄 3. BigQuery Interface Methods
+- Accurate BigQuery execution  
+- Zero SQL hallucination  
+- Auditable deterministic logic  
+- Secure prompts  
+- Modular agent design  
 
-These methods live in a separate utility class, keeping SQL logic isolated and maintainable.
+---
 
-Example Class Definition:
+# 🗄 3. BigQuery Interface Methods
+
+All SQL logic is isolated inside `BigQueryTools`.
+
+This enables:
+
+- Clean code  
+- Testability  
+- Reusability  
+- Control over data access  
+
+---
+
+## ✔ Structure
+
+```python
 class BigQueryTools:
     def __init__(self, client, project_id, dataset_id, table_id):
-        self.client = client
-        self.project_id = project_id
-        self.dataset_id = dataset_id
-        self.table_id = table_id
+        ...
+```
 
-🔹 Method 1: get_kpi_current_value()
+---
 
-Retrieves explicit numeric measures such as:
+### 🔹 Method: get_kpi_current_value()
 
-Impressions
-
-Clicks
-
-Cost
-
-Conversions
-
-Revenue
-
-ROAS
-
-CPC / CPM / CVR
+Purpose: Retrieve KPI’s current metrics.
 
 SQL Example:
 
+```sql
 SELECT
-  SUM(cost) AS total_cost,
+  SUM(cost) AS cost,
   SUM(conversions) AS conversions,
-  SUM(revenue) AS total_revenue,
+  SUM(revenue) AS revenue,
   SAFE_DIVIDE(SUM(revenue), SUM(cost)) AS roas
 FROM `project.dataset.table`
+```
 
-🔹 Method 2: get_campaign_performance()
+---
 
-Used to identify:
+### 🔹 Method: get_campaign_performance()
 
-Best / worst campaign
-
-Efficiency gaps
-
-Budget waste
-
-Underperforming segments
+Purpose: Identify campaign-level efficiencies.
 
 SQL Example:
 
+```sql
 SELECT
   campaign_name,
   SUM(cost) AS cost,
@@ -169,11 +176,17 @@ SELECT
 FROM `project.dataset.table`
 GROUP BY campaign_name
 ORDER BY cost DESC
+```
 
-🔹 Method 3: get_time_series_data()
+---
 
-Used in L2 research (trend analysis):
+### 🔹 Method: get_time_series_data()
 
+Purpose: Detect seasonality or trending behavior.
+
+SQL:
+
+```sql
 SELECT
   date,
   SUM(cost) AS cost,
@@ -182,111 +195,83 @@ SELECT
 FROM `project.dataset.table`
 GROUP BY date
 ORDER BY date ASC
+```
 
-Why this abstraction is powerful
+---
 
-Decouples agents from raw SQL
+### ✔ Why It’s Powerful
 
-Makes pipeline testable
+- LLM never writes raw SQL (unless NL2SQL is explicitly used)  
+- Stable, validated data retrieval  
+- Works offline with mock data  
+- Matches enterprise analytics patterns  
 
-Enables partial swap-out (mock BQ during offline tests)
+---
 
-Secure: Only known SQL patterns are executed
+# 🧠 4. Final Orchestrator Logic
 
-Works with ADK’s NL2SQL when necessary
+The orchestrator controls the entire multi-agent pipeline:
 
-🧠 4. Final Orchestrator Logic
+### Insights → Research → Planning
 
-The KPIAnalysisOrchestrator controls the full multi-agent flow:
+It coordinates:
 
-Manages A2AContext events
+- Prompt building  
+- Agent invocation  
+- A2AContext logging  
+- Memory state updates  
+- Timing metrics  
+- Final JSON output  
 
-Tracks execution duration
+---
 
-Builds prompts for each agent
+## ✔ Orchestrator Flow Details
 
-Maintains in-memory structured state
+### Step 1 — Insights Stage
 
-Produces final consolidated strategy
+```python
+insights = insights_agent.analyze_kpi(insights_prompt)
+context.log_artifact("Insights", insights)
+```
 
-🔍 Orchestrator Flow
-Step 1 — Insights Stage
-insights_prompt = build_insights_prompt(kpi_target)
-insights_json = self.insights_agent.analyze_kpi(insights_prompt)
-self.context.log_artifact("Insights", insights_json)
+Outputs include:
 
+- KPI current state  
+- Gap analysis  
+- Opportunities  
 
-Outputs:
+---
 
-current_state
+### Step 2 — Deep Research Stage
 
-gap_analysis
+```python
+research = research_agent.research_opportunities(research_prompt)
+context.log_artifact("ResearchSummary", research)
+```
 
-key_insights
+Outputs include:
 
-opportunities
+- Data-driven recommendations  
+- Trend patterns  
+- Efficiency gaps  
+- Hypotheses  
 
-Step 2 — Deep Research Stage
-research_prompt = build_research_prompt(insights, kpi_target)
-research_json = self.research_agent.research_opportunities(research_prompt)
-self.context.log_artifact("ResearchSummary", research_json)
+---
 
+### Step 3 — Planning Stage
 
-Outputs:
+```python
+plan = planning_agent.create_action_plan(planning_prompt)
+context.log_artifact("StrategyPlan", plan)
+```
 
-trends
+Outputs include:
 
-efficiency_gaps
+- Quick wins  
+- Medium-effort recommendations  
+- High-effort initiatives  
+- Success metrics  
+- Timeline  
+- Executive summary  
 
-optimization_opportunities
-
-hypotheses
-
-Step 3 — Planning Stage
-planning_prompt = build_planning_prompt(insights, research, kpi_target)
-plan_json = self.planning_agent.create_action_plan(planning_prompt)
-self.context.log_artifact("StrategyPlan", plan_json)
-
-
-Outputs:
-
-quick wins
-
-medium effort strategy
-
-high effort roadmap
-
-metrics to track
-
-timeline
-
-executive summary
-
-📦 Final Output
-
-The orchestrator returns a fully structured JSON:
-
-{
-  "insights": { ... },
-  "research": { ... },
-  "strategy_plan": { ... },
-  "timing": {
-    "insights_ms": 1200,
-    "research_ms": 1900,
-    "planning_ms": 1400,
-    "total_ms": 4500
-  }
-}
-
-
-Perfect for:
-
-Dashboards
-
-Notebooks
-
-Slack/Email alerts
-
-A/B experiments
-
-Automated optimization loops
+---
